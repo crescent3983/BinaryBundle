@@ -269,7 +269,7 @@ BinaryBundleInternal.DecodeString(byte[] bytes, ref int offset, ref string data,
 
 想知道詳細的處理過程可以添加編譯定義`BINARY_BUNDLE_DEBUG`
 
-![Debug Log](https://drive.google.com/uc?export=view&id=1R60VQKpuJh-wE91rLsp5DuUBFPpU4ue3)
+![Debug Log](./readme_assets/debug_log.png)
 
 ## 多線程
 

@@ -274,7 +274,7 @@ BinaryBundleInternal.DecodeString(byte[] bytes, ref int offset, ref string data,
 
 To see full encode/decode messages, you can define `BINARY_BUNDLE_DEBUG`
 
-![Debug Log](https://drive.google.com/uc?export=view&id=1R60VQKpuJh-wE91rLsp5DuUBFPpU4ue3)
+![Debug Log](./readme_assets/debug_log.png)
 
 ## Thread Safe
 
