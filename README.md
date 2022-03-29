@@ -8,6 +8,19 @@ It introduces no new data format, only pre-generating encode and decode methods 
 
 It can be used as network format or local storage.
 
+## Compatibility
+
+Only tested with below versions but may be compatible with other versions.
+
+| Version
+|------
+| Unity 2018.4.x
+| Unity 2020.3.x
+
+## Usage
+
+Use whole project or copy `Assets/Scripts/BinaryBundle` to your project
+
 ## Data Definition
 
 ```csharp
