@@ -12,6 +12,8 @@
 #define USE_STRUCT_TEST
 #define USE_VERSION_TEST
 #define USE_MIDDLE_CLASS
+#define USE_INNER_TEST
+#define USE_INNER_CLASS
 
 using System;
 using System.Collections.Generic;
@@ -580,5 +582,66 @@ namespace BinaryBundleTest {
 			BinaryBundleInternal.EncodeByte(bytes, fieldByte);
 #endif
 		}
+	}
+}
+
+namespace BinaryBundleTest {
+	partial class InnerTest : IBinaryBundleSerializable {
+		public InnerTest(byte[] bytes, ref int offset)  {
+#if USE_INNER_TEST
+			var __Boolean_1 = default(Boolean);
+
+			// fieldBool
+			if(!BinaryBundleInternal.DecodeBool(bytes, ref offset, ref __Boolean_1)) throw new DecodeBinaryBundleException("fieldBool", offset);
+			fieldBool = __Boolean_1;
+			// fieldInnerClass
+			if(!BinaryBundleInternal.DecodeBool(bytes, ref offset, ref __Boolean_1)) throw new DecodeBinaryBundleException("fieldInnerClass", offset);
+			fieldInnerClass = __Boolean_1 ? new BinaryBundleTest.InnerTest.InnerClass(bytes, ref offset) : null;
+#endif
+		}
+		public virtual void __BinaryBundleSerialize(List<byte> bytes) {
+#if USE_INNER_TEST
+
+			// fieldBool
+			BinaryBundleInternal.EncodeBool(bytes, fieldBool);
+			// fieldInnerClass
+			if(fieldInnerClass == null){
+				BinaryBundleInternal.EncodeBool(bytes, false);
+			}
+			else {
+				BinaryBundleInternal.EncodeBool(bytes, true);
+				fieldInnerClass.__BinaryBundleSerialize(bytes);
+			}
+#endif
+		}
+	}
+}
+
+namespace BinaryBundleTest {
+	partial class InnerTest : IBinaryBundleSerializable {
+	partial class InnerClass : IBinaryBundleSerializable {
+		public InnerClass(byte[] bytes, ref int offset)  {
+#if USE_INNER_CLASS
+			var __Int32_1 = default(Int32);
+			var __String_1 = default(String);
+
+			// fieldInt
+			if(!BinaryBundleInternal.DecodeInt(bytes, ref offset, ref __Int32_1)) throw new DecodeBinaryBundleException("fieldInt", offset);
+			fieldInt = __Int32_1;
+			// fieldString
+			if(!BinaryBundleInternal.DecodeString(bytes, ref offset, ref __String_1)) throw new DecodeBinaryBundleException("fieldString", offset);
+			fieldString = __String_1;
+#endif
+		}
+		public virtual void __BinaryBundleSerialize(List<byte> bytes) {
+#if USE_INNER_CLASS
+
+			// fieldInt
+			BinaryBundleInternal.EncodeInt(bytes, fieldInt);
+			// fieldString
+			BinaryBundleInternal.EncodeString(bytes, fieldString);
+#endif
+		}
+	}
 	}
 }

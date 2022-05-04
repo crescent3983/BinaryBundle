@@ -599,7 +599,7 @@ namespace BinaryBundle {
 				return type.Name;
 			}
 			else {
-				return type.FullName;
+				return type.FullName.Replace('+', '.');
 			}
 		}
 
