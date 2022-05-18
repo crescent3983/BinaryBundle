@@ -95,6 +95,7 @@ namespace BinaryBundle {
 					filteredTypes.Add(type);
 				}
 			}
+			filteredTypes.Sort((x, y) => x.FullName.CompareTo(y.FullName));
 
 			for (int i = 0; i < filteredTypes.Count; i++) {
 				sb.AppendLine("#define USE_" + filteredTypes[i].Name.ToDefineNamingConvention());
