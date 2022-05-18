@@ -216,9 +216,9 @@ namespace BinaryBundle {
 
 			for (int i = 0; i < fields.Count; i++) {
 				var f = fields[i];
-				var decodeStr = GenerateOneDecodeType(serializers, 1, f.Type, f.Name, $"{f.Name} = {{0}};", indent + (version > 0 ? "\t\t\t" : "\t\t"));
+				(var decodeStr, var decodeErr) = GenerateOneDecodeType(serializers, 1, f.Type, f.Name, $"{f.Name} = {{0}};", indent + (version > 0 ? "\t\t\t" : "\t\t"));
 				if (string.IsNullOrEmpty(decodeStr)) {
-					return $"Generate decode {type.Name}.{f.Name} failed";
+					return $"Generate decode {type.Name}.{f.Name} failed\n{decodeErr}";
 				}
 				else {
 					sb.AppendLine(indent + "\t\t// " + f.Name);
@@ -297,9 +297,9 @@ namespace BinaryBundle {
 				if(version < f.Min || version > f.Max) {
 					continue;
 				}
-				var encodeStr = GenerateOneEncodeType(serializers, 1, f.Type, f.Name, indent + "\t\t");
+				(var encodeStr, var encodeErr) = GenerateOneEncodeType(serializers, 1, f.Type, f.Name, indent + "\t\t");
 				if (string.IsNullOrEmpty(encodeStr)) {
-					return $"Generate encode {type.Name}.{f.Name} failed";
+					return $"Generate encode {type.Name}.{f.Name} failed\n{encodeErr}";
 				}
 				else {
 					sb.AppendLine(indent + "\t\t// " + f.Name);
@@ -323,10 +323,10 @@ namespace BinaryBundle {
 		}
 
 		#region Encode
-		private static string GenerateOneEncodeType(Dictionary<Type, Type> serializers, int depth, Type type, string name, string indent = "") {
+		private static (string, string) GenerateOneEncodeType(Dictionary<Type, Type> serializers, int depth, Type type, string name, string indent = "") {
 			string tmp1, tmp2, tmp3;
 			if (serializers.TryGetValue(type, out Type serializer)) {
-				return $"{indent}{TypeNameWithNamespace(serializer)}.{CUSTOM_SERIALIZE_METHOD_NAME}({name}, bytes);{Environment.NewLine}";
+				return ($"{indent}{TypeNameWithNamespace(serializer)}.{CUSTOM_SERIALIZE_METHOD_NAME}({name}, bytes);{Environment.NewLine}", null);
 			}
 			else if (type.IsArray) {
 				Type valueType = type.GetElementType();
@@ -334,12 +334,15 @@ namespace BinaryBundle {
 				tmp1 = RequireTmpVariable(typeof(int));
 				tmp2 = RequireTmpVariable(typeof(int));
 				tmp3 = RequireTmpVariable(valueType);
-				string encodeValueStr = GenerateOneEncodeType(serializers, depth + 1, valueType, tmp3, indent + "\t\t");
+				(string encodeValueStr, string encodeErr) = GenerateOneEncodeType(serializers, depth + 1, valueType, tmp3, indent + "\t\t");
 				ReturnTmpVariable(typeof(int));
 				ReturnTmpVariable(typeof(int));
 				ReturnTmpVariable(valueType);
 
-				if (!string.IsNullOrEmpty(encodeValueStr)) {
+				if (string.IsNullOrEmpty(encodeValueStr)) {
+					return (null, encodeErr);
+				}
+				else {
 					StringBuilder sb = new StringBuilder();
 					sb.Append(indent).AppendLine($"{tmp1} = {name}?.Length ?? 0;");
 					sb.Append(indent).AppendLine($"BinaryBundleInternal.EncodeInt(bytes, {tmp1});");
@@ -349,7 +352,7 @@ namespace BinaryBundle {
 					sb.Append(encodeValueStr);
 					sb.Append(indent).AppendLine("\t}");
 					sb.Append(indent).AppendLine("}");
-					return sb.ToString();
+					return (sb.ToString(), null);
 				}
 			}
 			else if (type.IsGenericList()) {
@@ -358,12 +361,15 @@ namespace BinaryBundle {
 				tmp1 = RequireTmpVariable(typeof(int));
 				tmp2 = RequireTmpVariable(typeof(int));
 				tmp3 = RequireTmpVariable(valueType);
-				string encodeValueStr = GenerateOneEncodeType(serializers, depth + 1, valueType, tmp3, indent + "\t\t");
+				(string encodeValueStr, string encodeErr) = GenerateOneEncodeType(serializers, depth + 1, valueType, tmp3, indent + "\t\t");
 				ReturnTmpVariable(typeof(int));
 				ReturnTmpVariable(typeof(int));
 				ReturnTmpVariable(valueType);
 
-				if (!string.IsNullOrEmpty(encodeValueStr)) {
+				if (string.IsNullOrEmpty(encodeValueStr)) {
+					return (null, encodeErr);
+				}
+				else {
 					StringBuilder sb = new StringBuilder();
 					sb.Append(indent).AppendLine($"{tmp1} = {name}?.Count ?? 0;");
 					sb.Append(indent).AppendLine($"BinaryBundleInternal.EncodeInt(bytes, {tmp1});");
@@ -373,7 +379,7 @@ namespace BinaryBundle {
 					sb.Append(encodeValueStr);
 					sb.Append(indent).AppendLine("\t}");
 					sb.Append(indent).AppendLine("}");
-					return sb.ToString();
+					return (sb.ToString(), null);
 				}
 			}
 			else if (type.IsGenericDictionary()) {
@@ -383,13 +389,19 @@ namespace BinaryBundle {
 				tmp1 = RequireTmpVariable(typeof(int));
 				tmp2 = RequireTmpVariable(keyType);
 				tmp3 = RequireTmpVariable(valueType);
-				string encodeKeyStr = GenerateOneEncodeType(serializers, depth + 1, keyType, tmp2, indent + "\t\t");
-				string encodeValueStr = GenerateOneEncodeType(serializers, depth + 1, valueType, tmp3, indent + "\t\t");
+				(string encodeKeyStr, string encodeKeyErr) = GenerateOneEncodeType(serializers, depth + 1, keyType, tmp2, indent + "\t\t");
+				(string encodeValueStr, string encodeValueErr) = GenerateOneEncodeType(serializers, depth + 1, valueType, tmp3, indent + "\t\t");
 				ReturnTmpVariable(typeof(int));
 				ReturnTmpVariable(keyType);
 				ReturnTmpVariable(valueType);
 
-				if (!string.IsNullOrEmpty(encodeKeyStr) && !string.IsNullOrEmpty(encodeValueStr)) {
+				if (string.IsNullOrEmpty(encodeKeyStr)) {
+					return (null, encodeKeyErr);
+				}
+				else if (string.IsNullOrEmpty(encodeValueStr)) {
+					return (null, encodeValueErr);
+				}
+				else {
 					StringBuilder sb = new StringBuilder();
 					sb.Append(indent).AppendLine($"{tmp1} = {name}?.Count ?? 0;");
 					sb.Append(indent).AppendLine($"BinaryBundleInternal.EncodeInt(bytes, {tmp1});");
@@ -401,7 +413,7 @@ namespace BinaryBundle {
 					sb.Append(encodeValueStr);
 					sb.Append(indent).AppendLine("\t}");
 					sb.Append(indent).AppendLine("}");
-					return sb.ToString();
+					return (sb.ToString(), null);
 				}
 			}
 			else if (type.HasAttribute<BinaryBundleObjectAttribute>()) {
@@ -419,26 +431,29 @@ namespace BinaryBundle {
 					sb.Append(indent).AppendLine($"BinaryBundleInternal.EncodeBool(bytes, true);");
 					sb.Append(indent).AppendLine($"{name}.__BinaryBundleSerialize(bytes);");
 				}
-				return sb.ToString();
+				return (sb.ToString(), null);
 			}
 			else if (SUPPORTED_TYPES.TryGetValue(type, out (string encode, string decode) v)) {
-				return $"{indent}BinaryBundleInternal.{v.encode}(bytes, {name});{Environment.NewLine}";
+				return ($"{indent}BinaryBundleInternal.{v.encode}(bytes, {name});{Environment.NewLine}", null);
 			}
 			else if (type.IsEnum) {
 				Type underlyingType = Enum.GetUnderlyingType(type);
 				if (SUPPORTED_TYPES.TryGetValue(underlyingType, out (string encode, string decode) u)) {
-					return $"{indent}BinaryBundleInternal.{u.encode}(bytes, ({underlyingType.Name}){name});{Environment.NewLine}";
+					return ($"{indent}BinaryBundleInternal.{u.encode}(bytes, ({underlyingType.Name}){name});{Environment.NewLine}", null);
+				}
+				else {
+					return (null, $"Enum underlyingType {underlyingType} is not supported");
 				}
 			}
-			return null;
+			return (null, $"{type} is not supported");
 		}
 		#endregion
 
 		#region Decode
-		private static string GenerateOneDecodeType(Dictionary<Type, Type> serializers, int depth, Type type, string name, string assignFmt, string indent = "") {
+		private static (string, string) GenerateOneDecodeType(Dictionary<Type, Type> serializers, int depth, Type type, string name, string assignFmt, string indent = "") {
 			string tmp1, tmp2, tmp3, tmp4, tmp5;
 			if (serializers.TryGetValue(type, out Type serializer)) {
-				return indent + string.Format(assignFmt, $"{TypeNameWithNamespace(serializer)}.{CUSTOM_DESERIALIZE_METHOD_NAME}(bytes, ref offset)") + Environment.NewLine;
+				return (indent + string.Format(assignFmt, $"{TypeNameWithNamespace(serializer)}.{CUSTOM_DESERIALIZE_METHOD_NAME}(bytes, ref offset)") + Environment.NewLine, null);
 			}
 			else if (type.IsArray) {
 				Type valueType = type.GetElementType();
@@ -446,12 +461,15 @@ namespace BinaryBundle {
 				tmp1 = RequireTmpVariable(typeof(int));
 				tmp2 = RequireTmpVariable(typeof(int));
 				tmp3 = RequireTmpVariable(type);
-				string decodeValueStr = GenerateOneDecodeType(serializers, depth + 1, valueType, name, $"{tmp3}[{tmp2}] = {{0}};", indent + "\t");
+				(string decodeValueStr, string decodeErr) = GenerateOneDecodeType(serializers, depth + 1, valueType, name, $"{tmp3}[{tmp2}] = {{0}};", indent + "\t");
 				ReturnTmpVariable(typeof(int));
 				ReturnTmpVariable(typeof(int));
 				ReturnTmpVariable(type);
 
-				if (!string.IsNullOrEmpty(decodeValueStr)) {
+				if (string.IsNullOrEmpty(decodeValueStr)) {
+					return (null, decodeErr);
+				}
+				else {
 					StringBuilder sb = new StringBuilder();
 					sb.Append(indent).AppendLine($"if(!BinaryBundleInternal.DecodeInt(bytes, ref offset, ref {tmp1})) throw new DecodeBinaryBundleException(\"{name}\", offset);");
 					sb.Append(indent).AppendLine($"{tmp3} = new {JaggedArrayDeclaration(type, tmp1)};");
@@ -459,7 +477,7 @@ namespace BinaryBundle {
 					sb.Append(decodeValueStr);
 					sb.Append(indent).AppendLine("}");
 					sb.Append(indent).AppendLine(string.Format(assignFmt, tmp3));
-					return sb.ToString();
+					return (sb.ToString(), null);
 				}
 			}
 			else if (type.IsGenericList()) {
@@ -468,12 +486,15 @@ namespace BinaryBundle {
 				tmp1 = RequireTmpVariable(typeof(int));
 				tmp2 = RequireTmpVariable(typeof(int));
 				tmp3 = RequireTmpVariable(type);
-				string decodeValueStr = GenerateOneDecodeType(serializers, depth + 1, valueType, name, $"{tmp3}.Add({{0}});", indent + "\t");
+				(string decodeValueStr, string decodeErr) = GenerateOneDecodeType(serializers, depth + 1, valueType, name, $"{tmp3}.Add({{0}});", indent + "\t");
 				ReturnTmpVariable(typeof(int));
 				ReturnTmpVariable(typeof(int));
 				ReturnTmpVariable(type);
 
-				if (!string.IsNullOrEmpty(decodeValueStr)) {
+				if (string.IsNullOrEmpty(decodeValueStr)) {
+					return (null, decodeErr);
+				}
+				else {
 					StringBuilder sb = new StringBuilder();
 					sb.Append(indent).AppendLine($"if(!BinaryBundleInternal.DecodeInt(bytes, ref offset, ref {tmp1})) throw new DecodeBinaryBundleException(\"{name}\", offset);");
 					sb.Append(indent).AppendLine($"{tmp3} = new List<{valueType.GetRealTypeName(TypeNameWithNamespace)}>({tmp1});");
@@ -481,7 +502,7 @@ namespace BinaryBundle {
 					sb.Append(decodeValueStr);
 					sb.Append(indent).AppendLine("}");
 					sb.Append(indent).AppendLine(string.Format(assignFmt, tmp3));
-					return sb.ToString();
+					return (sb.ToString(), null);
 				}
 			}
 			else if (type.IsGenericDictionary()) {
@@ -493,15 +514,21 @@ namespace BinaryBundle {
 				tmp3 = RequireTmpVariable(keyType);
 				tmp4 = RequireTmpVariable(valueType);
 				tmp5 = RequireTmpVariable(type);
-				string decodeKeyStr = GenerateOneDecodeType(serializers, depth + 1, keyType, name, $"{tmp3} = {{0}};", indent + "\t");
-				string decodeValueStr = GenerateOneDecodeType(serializers, depth + 1, valueType, name, $"{tmp4} = {{0}};", indent + "\t");
+				(string decodeKeyStr, string decodeKeyErr) = GenerateOneDecodeType(serializers, depth + 1, keyType, name, $"{tmp3} = {{0}};", indent + "\t");
+				(string decodeValueStr, string decodeValueErr) = GenerateOneDecodeType(serializers, depth + 1, valueType, name, $"{tmp4} = {{0}};", indent + "\t");
 				ReturnTmpVariable(typeof(int));
 				ReturnTmpVariable(typeof(int));
 				ReturnTmpVariable(keyType);
 				ReturnTmpVariable(valueType);
 				ReturnTmpVariable(type);
 
-				if (!string.IsNullOrEmpty(decodeKeyStr) && !string.IsNullOrEmpty(decodeValueStr)) {
+				if (string.IsNullOrEmpty(decodeKeyStr)) {
+					return (null, decodeKeyErr);
+				}
+				else if (string.IsNullOrEmpty(decodeValueStr)) {
+					return (null, decodeValueErr);
+				}
+				else {
 					StringBuilder sb = new StringBuilder();
 					sb.Append(indent).AppendLine($"if(!BinaryBundleInternal.DecodeInt(bytes, ref offset, ref {tmp1})) throw new DecodeBinaryBundleException(\"{name}\", offset);");
 					sb.Append(indent).AppendLine($"{tmp5} = new Dictionary<{keyType.GetRealTypeName(TypeNameWithNamespace)}, {valueType.GetRealTypeName(TypeNameWithNamespace)}>({tmp1});");
@@ -511,7 +538,7 @@ namespace BinaryBundle {
 					sb.Append(indent).AppendLine($"\t{tmp5}[{tmp3}] = {tmp4};");
 					sb.Append(indent).AppendLine("}");
 					sb.Append(indent).AppendLine(string.Format(assignFmt, tmp5));
-					return sb.ToString();
+					return (sb.ToString(), null);
 				}
 			}
 			else if (type.HasAttribute<BinaryBundleObjectAttribute>() && !type.IsAbstract) {
@@ -525,7 +552,7 @@ namespace BinaryBundle {
 					sb.Append(indent).AppendLine(string.Format(assignFmt, $"{tmp1} ? new {TypeNameWithNamespace(type)}(bytes, ref offset) : default({TypeNameWithNamespace(type)})"));
 				}
 				ReturnTmpVariable(typeof(bool));
-				return sb.ToString();
+				return (sb.ToString(), null);
 			}
 			else if (SUPPORTED_TYPES.TryGetValue(type, out (string encode, string decode) v)) {
 				StringBuilder sb = new StringBuilder();
@@ -533,7 +560,7 @@ namespace BinaryBundle {
 				sb.Append(indent).AppendLine($"if(!BinaryBundleInternal.{v.decode}(bytes, ref offset, ref {tmp1})) throw new DecodeBinaryBundleException(\"{name}\", offset);");
 				sb.Append(indent).AppendLine(string.Format(assignFmt, tmp1));
 				ReturnTmpVariable(type);
-				return sb.ToString();
+				return (sb.ToString(), null);
 			}
 			else if (type.IsEnum) {
 				Type underlyingType = Enum.GetUnderlyingType(type);
@@ -543,10 +570,13 @@ namespace BinaryBundle {
 					sb.Append(indent).AppendLine($"if(!BinaryBundleInternal.{u.decode}(bytes, ref offset, ref {tmp1})) throw new DecodeBinaryBundleException(\"{name}\", offset);");
 					sb.Append(indent).AppendLine(string.Format(assignFmt, $"({TypeNameWithNamespace(type)}){tmp1}"));
 					ReturnTmpVariable(underlyingType);
-					return sb.ToString();
+					return (sb.ToString(), null);
+				}
+				else {
+					return (null, $"Enum underlyingType {underlyingType} is not supported");
 				}
 			}
-			return null;
+			return (null, $"{type} is not supported");
 		}
 		#endregion
 
